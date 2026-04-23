@@ -1,18 +1,22 @@
-import { LS_VOCAB_PREFIX, lsGet, lsSet, lsRemove, updateCacheBadge } from './cache.js';
+import {
+  LS_VOCAB_PREFIX, lsGet, lsSet, lsRemove, updateCacheBadge,
+  getCategories, addToCategory, removeFromCategory, getItemCategories
+} from './cache.js';
 
 // ==================== STATE ====================
-export let VOCAB_LIST    = [];
-export let filteredList  = [];
-let currentPage          = 1;
-const PAGE_SIZE          = 60;
-let currentModalIndex    = -1;
-const meaningCache       = new Map();
-let vocabFilter          = 'all';
+export let VOCAB_LIST = [];
+export let filteredList = [];
+let currentPage = 1;
+const PAGE_SIZE = 60;
+let currentModalIndex = -1;
+const meaningCache = new Map();
+let vocabFilter = 'all';
+let vocabCategoryFilter = null; // null = no category filter active
 
 // ==================== FILTER ====================
 export function setVocabFilter(f) {
   vocabFilter = f;
-  ['all','studied','new'].forEach(id => {
+  ['all', 'studied', 'new'].forEach(id => {
     const el = document.getElementById('vf-' + id);
     el.className = 'filter-pill' + (id === f ? ` active-${id}` : '');
   });
@@ -26,9 +30,30 @@ export function applyVocabFilter() {
     : [...VOCAB_LIST];
   if (vocabFilter === 'studied') base = base.filter(w => !!lsGet(LS_VOCAB_PREFIX, cacheKey(w)));
   else if (vocabFilter === 'new') base = base.filter(w => !lsGet(LS_VOCAB_PREFIX, cacheKey(w)));
-  filteredList  = base;
-  currentPage   = 1;
+  if (vocabCategoryFilter) {
+    const cats = getCategories();
+    const catKeys = (cats[vocabCategoryFilter] && cats[vocabCategoryFilter].vocab) || [];
+    base = base.filter(w => catKeys.includes(cacheKey(w)));
+  }
+  filteredList = base;
+  currentPage = 1;
   renderGrid();
+}
+
+export function setVocabCategoryFilter(catName) {
+  vocabCategoryFilter = catName; // null clears, a name sets it
+  applyVocabFilter();
+}
+
+export function renderVocabCategoryPills() {
+  // Dropdown is rendered centrally by main.js — call safely even before __app is ready
+  if (window.__app && typeof window.__app._renderCatDropdown === 'function') {
+    window.__app._renderCatDropdown();
+  }
+}
+
+export function renderHeaderCategoryPills() {
+  renderVocabCategoryPills();
 }
 
 export function updateVocabStudiedCount() {
@@ -53,7 +78,7 @@ export async function loadVocabFromFile() {
     document.getElementById('totalBadge').textContent = VOCAB_LIST.length.toLocaleString() + ' Words';
     updateVocabStudiedCount();
     renderGrid();
-  } catch(e) {
+  } catch (e) {
     console.error('Failed to load vocab.txt:', e);
     document.getElementById('totalBadge').textContent = 'No vocab.txt';
   }
@@ -61,9 +86,9 @@ export async function loadVocabFromFile() {
 
 // ==================== GRID ====================
 export function renderGrid() {
-  const grid  = document.getElementById('wordGrid');
+  const grid = document.getElementById('wordGrid');
   const start = (currentPage - 1) * PAGE_SIZE;
-  const end   = Math.min(start + PAGE_SIZE, filteredList.length);
+  const end = Math.min(start + PAGE_SIZE, filteredList.length);
   const slice = filteredList.slice(start, end);
 
   if (filteredList.length === 0) {
@@ -73,7 +98,7 @@ export function renderGrid() {
   }
   grid.innerHTML = slice.map((w, i) => {
     const globalIdx = start + i;
-    const isCached  = !!lsGet(LS_VOCAB_PREFIX, cacheKey(w));
+    const isCached = !!lsGet(LS_VOCAB_PREFIX, cacheKey(w));
     return `<div class="word-card" onclick="window.__vocab.openModal(${globalIdx})">
       <div class="word-number">#${globalIdx + 1}</div>
       <div class="word-kanji">${w.kanji}</div>
@@ -85,13 +110,13 @@ export function renderGrid() {
 }
 
 function updatePagination() {
-  const total      = filteredList.length;
+  const total = filteredList.length;
   const totalPages = Math.ceil(total / PAGE_SIZE) || 1;
   document.getElementById('paginationInfo').textContent =
-    `Showing ${Math.min((currentPage-1)*PAGE_SIZE+1, total)}–${Math.min(currentPage*PAGE_SIZE, total)} of ${total}`;
-  document.getElementById('pageNum').textContent     = `Page ${currentPage} of ${totalPages}`;
-  document.getElementById('prevBtn').disabled        = currentPage <= 1;
-  document.getElementById('nextBtn').disabled        = currentPage >= totalPages;
+    `Showing ${Math.min((currentPage - 1) * PAGE_SIZE + 1, total)}–${Math.min(currentPage * PAGE_SIZE, total)} of ${total}`;
+  document.getElementById('pageNum').textContent = `Page ${currentPage} of ${totalPages}`;
+  document.getElementById('prevBtn').disabled = currentPage <= 1;
+  document.getElementById('nextBtn').disabled = currentPage >= totalPages;
 }
 
 export function changePage(dir) {
@@ -115,13 +140,13 @@ function cacheKey(w) { return `${w.kanji}|${w.reading}`; }
 
 export async function openModal(globalIdx) {
   currentModalIndex = globalIdx;
-  const word    = filteredList[globalIdx];
+  const word = filteredList[globalIdx];
   const overlay = document.getElementById('overlay');
   const content = document.getElementById('modalContent');
   overlay.classList.add('active');
   updateNavButtons();
 
-  const k      = cacheKey(word);
+  const k = cacheKey(word);
   const delBtn = document.getElementById('deleteCacheBtn');
   if (delBtn) delBtn.style.display = (lsGet(LS_VOCAB_PREFIX, k) || meaningCache.get(k)) ? '' : 'none';
 
@@ -152,7 +177,7 @@ export async function openModal(globalIdx) {
       result = await p;
     }
     if (currentModalIndex === globalIdx) displayResult(result, word);
-  } catch(e) {
+  } catch (e) {
     if (currentModalIndex === globalIdx)
       content.innerHTML += `<p style="color:var(--accent);margin-top:12px">Error loading. Please try again.</p>`;
   }
@@ -161,7 +186,7 @@ export async function openModal(globalIdx) {
 export function deleteCurrentVocabCache() {
   if (currentModalIndex < 0) return;
   const word = filteredList[currentModalIndex];
-  const k    = cacheKey(word);
+  const k = cacheKey(word);
   lsRemove(LS_VOCAB_PREFIX, k);
   meaningCache.delete(k);
   document.getElementById('deleteCacheBtn').style.display = 'none';
@@ -190,8 +215,8 @@ Add more meaning objects only for truly distinct meanings. Each meaning must hav
     const is503 = response.status === 503 || (data.error && (data.error.includes('503') || data.error.includes('UNAVAILABLE')));
     if (is429 || is503) {
       const waitMatch = data.error && data.error.match(/retry in ([\d.]+)s/i);
-      const waitSec   = is429 ? (waitMatch ? Math.ceil(parseFloat(waitMatch[1])) + 2 : 45) : 10;
-      const content   = document.getElementById('modalContent');
+      const waitSec = is429 ? (waitMatch ? Math.ceil(parseFloat(waitMatch[1])) + 2 : 45) : 10;
+      const content = document.getElementById('modalContent');
       if (content) {
         let remaining = waitSec;
         const interval = setInterval(() => {
@@ -211,12 +236,12 @@ Add more meaning objects only for truly distinct meanings. Each meaning must hav
 }
 
 function displayResult(r, word) {
-  const content  = document.getElementById('modalContent');
+  const content = document.getElementById('modalContent');
   const meanings = r.meanings || [];
   const meaningsHtml = meanings.map((m, i) => {
-    const num      = meanings.length > 1 ? `<span class="meaning-num">${m.number || i+1}</span>` : '';
+    const num = meanings.length > 1 ? `<span class="meaning-num">${m.number || i + 1}</span>` : '';
     const examples = m.examples || [];
-    const exHtml   = examples.map(ex => `
+    const exHtml = examples.map(ex => `
       <div class="example-jp">🇯🇵 ${ex.jp}</div>
       <div class="example-en">🇬🇧 ${ex.en}</div>
       <div class="example-ta">🇮🇳 ${ex.ta}</div>
@@ -238,8 +263,8 @@ function displayResult(r, word) {
     <div class="modal-reading">${word.reading}</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
       <span class="tag">🏷️ ${r.word_type || 'word'}</span>
-      <span class="tag">#${currentModalIndex+1} of ${filteredList.length}</span>
-      <span class="tag" style="background:var(--accent3)">${meanings.length} meaning${meanings.length>1?'s':''}</span>
+      <span class="tag">#${currentModalIndex + 1} of ${filteredList.length}</span>
+      <span class="tag" style="background:var(--accent3)">${meanings.length} meaning${meanings.length > 1 ? 's' : ''}</span>
     </div>
     <div class="section">
       <div class="section-label">📘 Meanings &amp; Examples (பொருள் மற்றும் உதாரணங்கள்)</div>
@@ -250,21 +275,103 @@ function displayResult(r, word) {
       <div class="section-content usage-context">
         <div class="usage-row"><span class="usage-icon">🏢</span><div class="usage-content">
           <span class="usage-label">Areas / துறை &amp; சூழல்</span>
-          <div class="usage-value-en">${r.ctx.area_en||'—'}</div>
-          <div class="usage-value-ta">${r.ctx.area_ta||'—'}</div>
+          <div class="usage-value-en">${r.ctx.area_en || '—'}</div>
+          <div class="usage-value-ta">${r.ctx.area_ta || '—'}</div>
         </div></div>
         <div class="usage-row"><span class="usage-icon">🕐</span><div class="usage-content">
           <span class="usage-label">Time / நேரம் &amp; சந்தர்ப்பம்</span>
-          <div class="usage-value-en">${r.ctx.time_en||'—'}</div>
-          <div class="usage-value-ta">${r.ctx.time_ta||'—'}</div>
+          <div class="usage-value-en">${r.ctx.time_en || '—'}</div>
+          <div class="usage-value-ta">${r.ctx.time_ta || '—'}</div>
         </div></div>
         <div class="usage-row"><span class="usage-icon">📍</span><div class="usage-content">
           <span class="usage-label">Place / இடம்</span>
-          <div class="usage-value-en">${r.ctx.place_en||'—'}</div>
-          <div class="usage-value-ta">${r.ctx.place_ta||'—'}</div>
+          <div class="usage-value-en">${r.ctx.place_en || '—'}</div>
+          <div class="usage-value-ta">${r.ctx.place_ta || '—'}</div>
         </div></div>
       </div>
     </div>` : ''}`;
+  // Append category section
+  content.innerHTML += buildVocabCatUI(cacheKey(word));
+}
+
+function buildVocabCatUI(key) {
+  const cats = getCategories();
+  const allNames = Object.keys(cats);
+  const myCategories = getItemCategories('vocab', key);
+  const safeId = key.replace(/[^a-zA-Z0-9]/g, '_');
+
+  const tagsHtml = myCategories.length
+    ? myCategories.map(n =>
+      `<span class="cat-tag">${n}
+          <button onclick="__vocab.removeCatItem('${key.replace(/'/g, "\\'")}','${n.replace(/'/g, "\\'")}')">✕</button>
+        </span>`
+    ).join('')
+    : '<span class="cat-empty">Not in any category</span>';
+
+  const optionsHtml = allNames.length
+    ? allNames.map(n => `<option value="${n}">${n}</option>`).join('')
+    : '<option value="" disabled>No categories yet</option>';
+
+  return `<div class="cat-section">
+    <div class="section-label">🏷️ My Categories</div>
+    <div class="cat-tags" id="vcat-tags-${safeId}">${tagsHtml}</div>
+    <div class="cat-add-row">
+      <select id="vcat-select-${safeId}">${optionsHtml}</select>
+      <button class="btn green" style="padding:4px 10px;font-size:.8rem"
+        onclick="__vocab.addCatItem('${key.replace(/'/g, "\\'")}','vcat-select-${safeId}','vcat-tags-${safeId}')">+ Add</button>
+      <button class="btn secondary" style="padding:4px 10px;font-size:.8rem"
+        onclick="__app.openCatManager()">⚙ Manage</button>
+    </div>
+    <div class="cat-new-row">
+      <input type="text" id="vcat-new-${safeId}" placeholder="New category name…" class="cat-new-input">
+      <button class="btn secondary" style="padding:4px 10px;font-size:.8rem"
+        onclick="__vocab.createCatItem('${key.replace(/'/g, "\\'")}','vcat-new-${safeId}','vcat-select-${safeId}','vcat-tags-${safeId}')">Create &amp; Add</button>
+    </div>
+  </div>`;
+}
+
+export function addCatItem(key, selectId, tagsId) {
+  const sel = document.getElementById(selectId);
+  if (!sel || !sel.value) return;
+  addToCategory('vocab', key, sel.value);
+  _refreshVocabCatTags(key, tagsId);
+  renderVocabCategoryPills();
+}
+
+export function removeCatItem(key, catName) {
+  removeFromCategory('vocab', key, catName);
+  const safeId = key.replace(/[^a-zA-Z0-9]/g, '_');
+  _refreshVocabCatTags(key, `vcat-tags-${safeId}`);
+  renderVocabCategoryPills();
+}
+
+export function createCatItem(key, inputId, selectId, tagsId) {
+  const inp = document.getElementById(inputId);
+  const name = inp ? inp.value.trim() : '';
+  if (!name) return;
+  addToCategory('vocab', key, name);
+  if (inp) inp.value = '';
+  // refresh select options
+  const sel = document.getElementById(selectId);
+  if (sel) {
+    const cats = getCategories();
+    sel.innerHTML = Object.keys(cats).map(n => `<option value="${n}">${n}</option>`).join('');
+  }
+  _refreshVocabCatTags(key, tagsId);
+  renderVocabCategoryPills();
+}
+
+function _refreshVocabCatTags(key, tagsId) {
+  const el = document.getElementById(tagsId);
+  if (!el) return;
+  const myCategories = getItemCategories('vocab', key);
+  el.innerHTML = myCategories.length
+    ? myCategories.map(n =>
+      `<span class="cat-tag">${n}
+          <button onclick="__vocab.removeCatItem('${key.replace(/'/g, "\\'")}','${n.replace(/'/g, "\\'")}')">✕</button>
+        </span>`
+    ).join('')
+    : '<span class="cat-empty">Not in any category</span>';
 }
 
 export function closeModal() {
