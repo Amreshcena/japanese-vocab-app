@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,115 +8,154 @@
   <link rel="icon" type="image/jpeg" href="icon.jpg">
   <link rel="stylesheet" href="css/styles.css">
 </head>
+
 <body>
 
-<header>
-  <div class="header-logo-wrap">
-    <div class="logo-inner">
-      <img src="icon.jpg" alt="NihonMozhi Logo">
+  <header>
+    <div class="header-logo-wrap">
+      <div class="logo-inner">
+        <img src="icon.jpg" alt="NihonMozhi Logo">
+      </div>
     </div>
-  </div>
-  <div class="header-text-wrap">
-    <h1>NihonMozhi</h1>
-    <p>Vocabulary & Grammar — English & Tamil</p>
-  </div>
-  <div class="badge" id="totalBadge">Loading...</div>
-  <div class="badge grammar-badge" id="grammarBadge" style="display:none"></div>
-  <div class="badge" id="cacheStatus" style="background:#15803d;font-size:0.7rem;">💾 0V + 0G cached</div>
-  <button class="btn" style="font-size:0.7rem;padding:4px 10px;background:#374151;" onclick="__app.exportCache()" title="Export cache to JSON file">⬇ Export</button>
-  <button class="btn" style="font-size:0.7rem;padding:4px 10px;background:#374151;" onclick="document.getElementById('importFile').click()" title="Import cache from JSON file">⬆ Import</button>
-  <button class="btn" style="font-size:0.7rem;padding:4px 10px;background:#7f1d1d;" onclick="__app.clearAllCache()" title="Clear all cached data">🗑 Clear</button>
-  <input type="file" id="importFile" accept=".json" style="display:none" onchange="__app.importCache(event)">
-</header>
+    <div class="header-text-wrap">
+      <h1>NihonMozhi</h1>
+      <p>Vocabulary & Grammar — English & Tamil</p>
+    </div>
+    <div class="badge" id="totalBadge">Loading...</div>
+    <div class="badge grammar-badge" id="grammarBadge" style="display:none"></div>
+    <div class="badge" id="cacheStatus" style="background:#15803d;font-size:0.7rem;">💾 0V + 0G cached</div>
+    <button class="btn" style="font-size:0.7rem;padding:4px 10px;background:#374151;" onclick="__app.exportCache()"
+      title="Export cache to JSON file">⬇ Export</button>
+    <button class="btn" style="font-size:0.7rem;padding:4px 10px;background:#374151;"
+      onclick="document.getElementById('importFile').click()" title="Import cache from JSON file">⬆ Import</button>
+    <button class="btn" style="font-size:0.7rem;padding:4px 10px;background:#7f1d1d;" onclick="__app.clearAllCache()"
+      title="Clear all cached data">🗑 Clear</button>
+    <input type="file" id="importFile" accept=".json" style="display:none" onchange="__app.importCache(event)">
+    <div class="cat-dropdown-wrap" id="catDropdownWrap">
+      <button class="cat-dropdown-btn" id="catDropdownBtn" onclick="__app.toggleCatDropdown()">
+        🏷️ <span id="catDropdownLabel">Categories</span> <span class="cat-dd-arrow">▾</span>
+      </button>
+      <div class="cat-dropdown-panel" id="catDropdownPanel" style="display:none">
+        <div class="cat-dd-search-wrap">
+          <input type="text" id="catDdSearch" class="cat-dd-search" placeholder="Search category…"
+            oninput="__app.filterCatDropdown()" autocomplete="off">
+          <span class="cat-dd-search-icon">🔍</span>
+        </div>
+        <div class="cat-dd-list" id="catDdList"></div>
+        <div class="cat-dd-footer">
+          <button class="cat-dd-manage" onclick="__app.openCatManager();__app.closeCatDropdown()">⚙ Manage</button>
+          <button class="cat-dd-clear" id="catDdClearBtn" onclick="__app.clearCatFilter()" style="display:none">✕ Clear
+            filter</button>
+        </div>
+      </div>
+    </div>
+  </header>
 
-<!-- TAB NAV -->
-<div class="tab-nav">
-  <button class="tab-btn active" id="tabVocab"   onclick="__app.switchTab('vocab')">📚 Vocabulary (語彙)</button>
-  <button class="tab-btn grammar" id="tabGrammar" onclick="__app.switchTab('grammar')">📖 Grammar (文法)</button>
-</div>
-
-<!-- ===================== VOCAB TAB ===================== -->
-<div class="tab-panel active" id="panelVocab">
-  <div class="controls">
-    <div class="search-wrap">
-      <span class="icon">🔍</span>
-      <input type="text" id="searchInput" placeholder="Search in Japanese, English, or Tamil…" oninput="__vocab.handleSearch()">
-    </div>
-    <div class="filter-wrap">
-      <button class="filter-pill active-all" id="vf-all"     onclick="__vocab.setVocabFilter('all')">📚 All</button>
-      <button class="filter-pill"            id="vf-studied"  onclick="__vocab.setVocabFilter('studied')">✅ Studied <span id="vStudiedCount"></span></button>
-      <button class="filter-pill"            id="vf-new"      onclick="__vocab.setVocabFilter('new')">🆕 Not Yet</button>
-    </div>
-    <div class="random-btn-wrap">
-      <button class="btn secondary" onclick="__vocab.pickRandom()">🎲 Random Word</button>
-      <button class="btn green"     onclick="__vocab.clearSearch()">Clear</button>
-    </div>
-    <div class="pagination-info" id="paginationInfo"></div>
-  </div>
-
-  <div class="word-grid" id="wordGrid"></div>
-
-  <div class="page-controls" id="pageControls">
-    <button class="page-btn" id="prevBtn" onclick="__vocab.changePage(-1)">← Prev</button>
-    <span class="page-num"   id="pageNum"></span>
-    <button class="page-btn" id="nextBtn" onclick="__vocab.changePage(1)">Next →</button>
-  </div>
-</div>
-
-<!-- ===================== GRAMMAR TAB ===================== -->
-<div class="tab-panel" id="panelGrammar">
-  <div class="controls">
-    <div class="search-wrap grammar-search">
-      <span class="icon">🔍</span>
-      <input type="text" id="grammarSearchInput" placeholder="Search grammar points…" oninput="__grammar.handleGrammarSearch()">
-    </div>
-    <div class="filter-wrap">
-      <button class="filter-pill grammar-pill active-all" id="gf-all"     onclick="__grammar.setGrammarFilter('all')">📖 All</button>
-      <button class="filter-pill grammar-pill"            id="gf-studied"  onclick="__grammar.setGrammarFilter('studied')">✅ Studied <span id="gStudiedCount"></span></button>
-      <button class="filter-pill grammar-pill"            id="gf-new"      onclick="__grammar.setGrammarFilter('new')">🆕 Not Yet</button>
-    </div>
-    <div class="random-btn-wrap">
-      <button class="btn purple" onclick="__grammar.pickRandomGrammar()">🎲 Random Point</button>
-      <button class="btn green"  onclick="__grammar.clearGrammarSearch()">Clear</button>
-    </div>
-    <div class="pagination-info" id="grammarPaginationInfo"></div>
+  <!-- TAB NAV -->
+  <div class="tab-nav">
+    <button class="tab-btn active" id="tabVocab" onclick="__app.switchTab('vocab')">📚 Vocabulary (語彙)</button>
+    <button class="tab-btn grammar" id="tabGrammar" onclick="__app.switchTab('grammar')">📖 Grammar (文法)</button>
   </div>
 
-  <div class="grammar-grid" id="grammarGrid"></div>
+  <!-- ===================== VOCAB TAB ===================== -->
+  <div class="tab-panel active" id="panelVocab">
+    <div class="controls">
+      <div class="search-wrap">
+        <span class="icon">🔍</span>
+        <input type="text" id="searchInput" placeholder="Search in Japanese, English, or Tamil…"
+          oninput="__vocab.handleSearch()">
+      </div>
+      <div class="filter-wrap">
+        <button class="filter-pill active-all" id="vf-all" onclick="__vocab.setVocabFilter('all')">📚 All</button>
+        <button class="filter-pill" id="vf-studied" onclick="__vocab.setVocabFilter('studied')">✅ Studied <span
+            id="vStudiedCount"></span></button>
+        <button class="filter-pill" id="vf-new" onclick="__vocab.setVocabFilter('new')">🆕 Not Yet</button>
+      </div>
+      <div class="random-btn-wrap">
+        <button class="btn secondary" onclick="__vocab.pickRandom()">🎲 Random Word</button>
+        <button class="btn green" onclick="__vocab.clearSearch()">Clear</button>
+      </div>
+      <div class="pagination-info" id="paginationInfo"></div>
+    </div>
 
-  <div class="page-controls" id="grammarPageControls">
-    <button class="page-btn" id="grammarPrevBtn" onclick="__grammar.changeGrammarPage(-1)">← Prev</button>
-    <span class="page-num"   id="grammarPageNum"></span>
-    <button class="page-btn" id="grammarNextBtn" onclick="__grammar.changeGrammarPage(1)">Next →</button>
-  </div>
-</div>
+    <div class="word-grid" id="wordGrid"></div>
 
-<!-- ===================== VOCAB MODAL ===================== -->
-<div class="overlay" id="overlay" onclick="__vocab.handleOverlayClick(event)">
-  <div class="modal" id="modal">
-    <button class="modal-close" onclick="__vocab.closeModal()">✕</button>
-    <div id="modalContent"></div>
-    <div class="modal-nav">
-      <button class="btn secondary" id="prevWord"       onclick="__vocab.navigateWord(-1)">← Previous</button>
-      <button class="btn danger"    id="deleteCacheBtn" onclick="__vocab.deleteCurrentVocabCache()" style="display:none" title="Remove this word from cache">🗑 Remove Cache</button>
-      <button class="btn secondary" id="nextWord"       onclick="__vocab.navigateWord(1)">Next →</button>
+    <div class="page-controls" id="pageControls">
+      <button class="page-btn" id="prevBtn" onclick="__vocab.changePage(-1)">← Prev</button>
+      <span class="page-num" id="pageNum"></span>
+      <button class="page-btn" id="nextBtn" onclick="__vocab.changePage(1)">Next →</button>
     </div>
   </div>
-</div>
 
-<!-- ===================== GRAMMAR MODAL ===================== -->
-<div class="overlay" id="grammarOverlay" onclick="__grammar.handleGrammarOverlayClick(event)">
-  <div class="modal grammar-modal" id="grammarModal">
-    <button class="modal-close" onclick="__grammar.closeGrammarModal()">✕</button>
-    <div id="grammarModalContent"></div>
-    <div class="modal-nav">
-      <button class="btn purple" id="prevGrammar"           onclick="__grammar.navigateGrammar(-1)">← Previous</button>
-      <button class="btn danger" id="deleteGrammarCacheBtn" onclick="__grammar.deleteCurrentGrammarCache()" style="display:none" title="Remove this grammar point from cache">🗑 Remove Cache</button>
-      <button class="btn purple" id="nextGrammar"           onclick="__grammar.navigateGrammar(1)">Next →</button>
+  <!-- ===================== GRAMMAR TAB ===================== -->
+  <div class="tab-panel" id="panelGrammar">
+    <div class="controls">
+      <div class="search-wrap grammar-search">
+        <span class="icon">🔍</span>
+        <input type="text" id="grammarSearchInput" placeholder="Search grammar points…"
+          oninput="__grammar.handleGrammarSearch()">
+      </div>
+      <div class="filter-wrap">
+        <button class="filter-pill grammar-pill active-all" id="gf-all" onclick="__grammar.setGrammarFilter('all')">📖
+          All</button>
+        <button class="filter-pill grammar-pill" id="gf-studied" onclick="__grammar.setGrammarFilter('studied')">✅
+          Studied <span id="gStudiedCount"></span></button>
+        <button class="filter-pill grammar-pill" id="gf-new" onclick="__grammar.setGrammarFilter('new')">🆕 Not
+          Yet</button>
+      </div>
+      <div class="random-btn-wrap">
+        <button class="btn purple" onclick="__grammar.pickRandomGrammar()">🎲 Random Point</button>
+        <button class="btn green" onclick="__grammar.clearGrammarSearch()">Clear</button>
+      </div>
+      <div class="pagination-info" id="grammarPaginationInfo"></div>
+    </div>
+
+    <div class="grammar-grid" id="grammarGrid"></div>
+
+    <div class="page-controls" id="grammarPageControls">
+      <button class="page-btn" id="grammarPrevBtn" onclick="__grammar.changeGrammarPage(-1)">← Prev</button>
+      <span class="page-num" id="grammarPageNum"></span>
+      <button class="page-btn" id="grammarNextBtn" onclick="__grammar.changeGrammarPage(1)">Next →</button>
     </div>
   </div>
-</div>
 
-<script type="module" src="js/main.js"></script>
+  <!-- ===================== VOCAB MODAL ===================== -->
+  <div class="overlay" id="overlay" onclick="__vocab.handleOverlayClick(event)">
+    <div class="modal" id="modal">
+      <button class="modal-close" onclick="__vocab.closeModal()">✕</button>
+      <div id="modalContent"></div>
+      <div class="modal-nav">
+        <button class="btn secondary" id="prevWord" onclick="__vocab.navigateWord(-1)">← Previous</button>
+        <button class="btn danger" id="deleteCacheBtn" onclick="__vocab.deleteCurrentVocabCache()" style="display:none"
+          title="Remove this word from cache">🗑 Remove Cache</button>
+        <button class="btn secondary" id="nextWord" onclick="__vocab.navigateWord(1)">Next →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== GRAMMAR MODAL ===================== -->
+  <div class="overlay" id="grammarOverlay" onclick="__grammar.handleGrammarOverlayClick(event)">
+    <div class="modal grammar-modal" id="grammarModal">
+      <button class="modal-close" onclick="__grammar.closeGrammarModal()">✕</button>
+      <div id="grammarModalContent"></div>
+      <div class="modal-nav">
+        <button class="btn purple" id="prevGrammar" onclick="__grammar.navigateGrammar(-1)">← Previous</button>
+        <button class="btn danger" id="deleteGrammarCacheBtn" onclick="__grammar.deleteCurrentGrammarCache()"
+          style="display:none" title="Remove this grammar point from cache">🗑 Remove Cache</button>
+        <button class="btn purple" id="nextGrammar" onclick="__grammar.navigateGrammar(1)">Next →</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+  <!-- ===================== CATEGORY MANAGER MODAL ===================== -->
+  <div class="overlay" id="catManagerModal" onclick="if(event.target===this)__app.closeCatManager()">
+    <div class="modal" style="max-width:480px">
+      <button class="modal-close" onclick="__app.closeCatManager()">✕</button>
+      <div style="font-size:1.15rem;font-weight:700;margin-bottom:16px">🏷️ Manage Categories</div>
+      <div id="catManagerContent"></div>
+    </div>
+  </div>
 </body>
+
 </html>
