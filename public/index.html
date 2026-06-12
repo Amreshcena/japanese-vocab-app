@@ -25,7 +25,9 @@
     <div class="badge grammar-badge" id="grammarBadge" style="display:none"></div>
     <div class="badge" id="cacheStatus" style="background:#15803d;font-size:0.7rem;">💾 0V + 0G cached</div>
     <button class="btn" style="font-size:0.7rem;padding:4px 10px;background:#374151;" onclick="__app.exportCache()"
-      title="Export cache to JSON file">⬇ Export</button>
+      title="Export cache to JSON file (with categories)">⬇ Export</button>
+    <button class="btn" style="font-size:0.7rem;padding:4px 10px;background:#374151;" onclick="__app.exportCacheWithoutCategories()"
+      title="Export cache to JSON file (without categories)">⬇ Export (no cat)</button>
     <button class="btn" style="font-size:0.7rem;padding:4px 10px;background:#374151;"
       onclick="document.getElementById('importFile').click()" title="Import cache from JSON file">⬆ Import</button>
     <button class="btn" style="font-size:0.7rem;padding:4px 10px;background:#7f1d1d;" onclick="__app.clearAllCache()"
