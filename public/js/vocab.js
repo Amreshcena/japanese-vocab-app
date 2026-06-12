@@ -100,6 +100,7 @@ export function renderGrid() {
     const globalIdx = start + i;
     const isCached = !!lsGet(LS_VOCAB_PREFIX, cacheKey(w));
     return `<div class="word-card" onclick="window.__vocab.openModal(${globalIdx})">
+      <button class="speak-btn" onclick="event.stopPropagation();__vocab.speakWord('${w.kanji.replace(/'/g, "\\'")}','${w.reading.replace(/'/g, "\\'")}')" title="Listen">🔊</button>
       <div class="word-number">#${globalIdx + 1}</div>
       <div class="word-kanji">${w.kanji}</div>
       <div class="word-reading">${w.reading}</div>
@@ -259,7 +260,7 @@ function displayResult(r, word) {
   }).join('');
 
   content.innerHTML = `
-    <div class="modal-word">${word.kanji}</div>
+    <div class="modal-word">${word.kanji} <button class="btn secondary" style="font-size:.8rem;padding:4px 10px;vertical-align:middle" onclick="__vocab.speakWord('${word.kanji.replace(/'/g, "\\'")}','${word.reading.replace(/'/g, "\\'")}')" title="Listen">🔊</button></div>
     <div class="modal-reading">${word.reading}</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
       <span class="tag">🏷️ ${r.word_type || 'word'}</span>
@@ -387,4 +388,32 @@ export function navigateWord(dir) {
 function updateNavButtons() {
   document.getElementById('prevWord').disabled = currentModalIndex <= 0;
   document.getElementById('nextWord').disabled = currentModalIndex >= filteredList.length - 1;
+}
+
+// ==================== AUDIO (Free, browser Text-to-Speech) ====================
+export function speakWord(kanji, reading) {
+  try {
+    if (!('speechSynthesis' in window)) {
+      alert('Text-to-speech is not supported in this browser.');
+      return;
+    }
+    speechSynthesis.cancel();
+    // Prefer reading (kana) for accurate pronunciation
+    const text = reading || kanji;
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = 'ja-JP';
+    utter.rate = 0.85;
+    const voices = speechSynthesis.getVoices();
+    const jaVoice = voices.find(v => v.lang === 'ja-JP') || voices.find(v => v.lang && v.lang.startsWith('ja'));
+    if (jaVoice) utter.voice = jaVoice;
+    speechSynthesis.speak(utter);
+  } catch (e) {
+    console.error('Speech error:', e);
+  }
+}
+
+// Pre-warm voices list (some browsers load voices async)
+if ('speechSynthesis' in window) {
+  speechSynthesis.getVoices();
+  speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
 }

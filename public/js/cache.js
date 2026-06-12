@@ -63,6 +63,94 @@ export function exportCache() {
   URL.revokeObjectURL(a.href);
 }
 
+// Export only entries belonging to a given category (vocab + grammar + that category's mapping)
+export function exportCategoryCache(categoryName) {
+  const cats = getCategories();
+  const cat = cats[categoryName];
+  if (!cat) { alert('Category not found.'); return; }
+  const data = {};
+  let count = 0;
+
+  (cat.vocab || []).forEach(key => {
+    const lsKey = LS_VOCAB_PREFIX + btoa(unescape(encodeURIComponent(key)));
+    const val = localStorage.getItem(lsKey);
+    if (val) { data[lsKey] = val; count++; }
+  });
+  (cat.grammar || []).forEach(key => {
+    const lsKey = LS_GRAMMAR_PREFIX + btoa(unescape(encodeURIComponent(key)));
+    const val = localStorage.getItem(lsKey);
+    if (val) { data[lsKey] = val; count++; }
+  });
+
+  if (count === 0) { alert('No cached data found for this category.'); return; }
+
+  // Include only this category's mapping so import doesn't merge unrelated categories
+  data[LS_CATEGORIES_KEY] = JSON.stringify({ [categoryName]: cat });
+
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  const safeName = categoryName.replace(/[^a-zA-Z0-9_-]/g, '_');
+  a.download = `jp_study_${safeName}_${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// Export all cached data EXCLUDING category info (plain data dump, no categories key)
+export function exportCacheWithoutCategories() {
+  const data = {};
+  Object.keys(localStorage)
+    .filter(k => k.startsWith(LS_VOCAB_PREFIX) || k.startsWith(LS_GRAMMAR_PREFIX))
+    .forEach(k => { data[k] = localStorage.getItem(k); });
+  const count = Object.keys(data).length;
+  if (count === 0) { alert('No cached data to export.'); return; }
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `jp_study_cache_nocat_${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// Merge imported categories into existing categories instead of overwriting everything
+export function importCacheMerge(event, onDone) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      let imported = 0;
+      const existingCats = getCategories();
+      Object.entries(data).forEach(([k, v]) => {
+        if (k === LS_CATEGORIES_KEY) {
+          try {
+            const incomingCats = JSON.parse(v);
+            Object.entries(incomingCats).forEach(([catName, catData]) => {
+              if (!existingCats[catName]) existingCats[catName] = { vocab: [], grammar: [] };
+              ['vocab', 'grammar'].forEach(type => {
+                const incomingKeys = catData[type] || [];
+                const existingKeys = existingCats[catName][type] || [];
+                existingCats[catName][type] = Array.from(new Set([...existingKeys, ...incomingKeys]));
+              });
+            });
+            saveCategories(existingCats);
+          } catch (_) { }
+          imported++;
+        } else if (k.startsWith(LS_VOCAB_PREFIX) || k.startsWith(LS_GRAMMAR_PREFIX)) {
+          localStorage.setItem(k, v);
+          imported++;
+        }
+      });
+      updateCacheBadge();
+      alert(`✅ Imported ${imported} entries (categories merged)!`);
+      if (onDone) onDone();
+    } catch (err) { alert('Failed to import: ' + err.message); }
+    event.target.value = '';
+  };
+  reader.readAsText(file);
+}
+
 export function importCache(event, onDone) {
   const file = event.target.files[0];
   if (!file) return;

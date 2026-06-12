@@ -1,12 +1,13 @@
 import {
   updateCacheBadge, clearAllCache, exportCache, importCache,
+  exportCategoryCache, exportCacheWithoutCategories, importCacheMerge,
   getCategories, deleteCategory, renameCategory
 } from './cache.js';
 import {
   loadVocabFromFile, renderGrid, applyVocabFilter, setVocabFilter,
   updateVocabStudiedCount, changePage, clearSearch, pickRandom,
   openModal, closeModal, navigateWord, deleteCurrentVocabCache,
-  renderVocabCategoryPills, setVocabCategoryFilter,
+  renderVocabCategoryPills, setVocabCategoryFilter, speakWord,
   addCatItem as vocabAddCat, removeCatItem as vocabRemoveCat, createCatItem as vocabCreateCat
 } from './vocab.js';
 import {
@@ -158,6 +159,8 @@ function openCatManager() {
         </div>
         <div class="cat-manager-actions">
           <button class="btn secondary" style="padding:3px 8px;font-size:.75rem"
+            onclick="__app.exportCat('${safeName}')">⬇ Export</button>
+          <button class="btn secondary" style="padding:3px 8px;font-size:.75rem"
             onclick="__app.renameCat('${safeName}')">✏️ Rename</button>
           <button class="btn" style="padding:3px 8px;font-size:.75rem;background:#7f1d1d"
             onclick="__app.deleteCat('${safeName}')">🗑 Delete</button>
@@ -190,6 +193,7 @@ window.__vocab = {
   handleSearch: () => applyVocabFilter(),
   handleOverlayClick: (e) => { if (e.target === document.getElementById('overlay')) closeModal(); },
   setVocabCategoryFilter,
+  speakWord,
   addCatItem: vocabAddCat,
   removeCatItem: vocabRemoveCat,
   createCatItem: vocabCreateCat
@@ -209,6 +213,8 @@ window.__grammar = {
 window.__app = {
   switchTab,
   exportCache,
+  exportCacheWithoutCategories,
+  exportCat: exportCategoryCache,
   openCatManager,
   _renderCatDropdown: renderCatDropdown,
   closeCatManager: () => document.getElementById('catManagerModal').classList.remove('active'),
@@ -242,7 +248,7 @@ window.__app = {
     renderGrid();
     renderGrammarGrid();
   }),
-  importCache: (event) => importCache(event, () => {
+  importCache: (event) => importCacheMerge(event, () => {
     updateVocabStudiedCount();
     updateGrammarStudiedCount();
     renderGrid();
